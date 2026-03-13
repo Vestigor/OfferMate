@@ -19,6 +19,7 @@ import java.util.Set;
 @Data
 @Entity
 @Table(name = "rag_chat_sessions", indexes = {
+        @Index(name = "idx_rag_session_user_id", columnList = "userId"),
         @Index(name = "idx_rag_session_updated", columnList = "updatedAt")
 })
 @NoArgsConstructor
@@ -27,6 +28,9 @@ public class RagChatSessionEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(nullable = false)
+    private Long userId;
 
     /**
      * 会话标题（可自动生成或用户自定义）
@@ -90,14 +94,6 @@ public class RagChatSessionEntity {
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
-    }
-
-    @PostLoad
-    protected void onLoad() {
-        // 确保 isPinned 字段始终有值（兼容旧数据）
-        if (isPinned == null) {
-            isPinned = false;
-        }
     }
 
     /**

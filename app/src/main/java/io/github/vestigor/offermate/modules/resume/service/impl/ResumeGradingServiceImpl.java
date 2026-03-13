@@ -7,7 +7,6 @@ import io.github.vestigor.offermate.modules.resume.model.dto.ResumeAnalysisRespo
 import io.github.vestigor.offermate.modules.resume.model.dto.ResumeAnalysisResponseDTO;
 import io.github.vestigor.offermate.modules.resume.service.ResumeGradingService;
 
-import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -23,7 +22,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Slf4j
 @Service
 public class ResumeGradingServiceImpl implements ResumeGradingService {
 
@@ -59,7 +57,7 @@ public class ResumeGradingServiceImpl implements ResumeGradingService {
             // 加载用户提示词并填充变量
             Map<String, Object> variables = new HashMap<>();
             variables.put("resumeText", resumeText);
-            String userPrompt = userPromptTemplate.render();
+            String userPrompt = userPromptTemplate.render(variables);
 
             // 添加格式指令到系统提示词
             String systemPromptWithFormat = systemPrompt + "\n\n" + outputConverter.getFormat();

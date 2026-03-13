@@ -37,7 +37,7 @@ public class KnowledgeBaseDeleteServiceImpl implements KnowledgeBaseDeleteServic
     public void deleteKnowledgeBase(Long id) {
         // 获取知识库信息
         KnowledgeBaseEntity kb = knowledgeBaseRepository.findById(id)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "知识库不存在"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.KNOWLEDGE_BASE_NOT_FOUND, "知识库不存在"));
 
         // 删除所有RAG会话中的知识库关联（必须先删除关联，否则外键约束会阻止删除）
         List<RagChatSessionEntity> sessions = sessionRepository.findByKnowledgeBaseIds(List.of(id));

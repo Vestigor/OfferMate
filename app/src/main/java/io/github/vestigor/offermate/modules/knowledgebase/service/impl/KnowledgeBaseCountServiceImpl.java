@@ -43,7 +43,7 @@ public class KnowledgeBaseCountServiceImpl implements KnowledgeBaseCountService 
 
         for (Long id : uniqueIds) {
             if (!existingIds.contains(id)){
-                throw new BusinessException(ErrorCode.NOT_FOUND, "知识库不存在: " + id);
+                throw new BusinessException(ErrorCode.KNOWLEDGE_BASE_NOT_FOUND, "知识库不存在: " + id);
             }
         }
 

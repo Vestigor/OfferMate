@@ -1,4 +1,4 @@
-package interview.guide.common.config;
+package io.github.vestigor.offermate.common.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;

@@ -2,6 +2,7 @@ package io.github.vestigor.offermate.modules.knowledgebase.service.impl;
 
 import io.github.vestigor.offermate.common.exception.BusinessException;
 import io.github.vestigor.offermate.common.exception.ErrorCode;
+import io.github.vestigor.offermate.common.security.SecurityUtils;
 import io.github.vestigor.offermate.modules.knowledgebase.model.entity.KnowledgeBaseEntity;
 import io.github.vestigor.offermate.modules.knowledgebase.model.status.VectorStatus;
 import io.github.vestigor.offermate.modules.knowledgebase.repository.KnowledgeBaseRepository;
@@ -28,24 +29,22 @@ public class KnowledgeBasePersistenceServiceImpl implements KnowledgeBasePersist
     private final KnowledgeBaseRepository knowledgeBaseRepository;
 
     /**
-     * 处理重复知识库
+     * 处理重复知识库（用户维度）
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> handleDuplicateKnowledgeBase(KnowledgeBaseEntity kb, String fileHash) {
         log.info("检测到重复知识库，返回已有记录: kbId={}", kb.getId());
 
-        // 更新访问计数（在事务中）
         kb.incrementAccessCount();
         knowledgeBaseRepository.save(kb);
 
-        // 重复知识库的向量数据应该已经存在，不需要重新向量化
         return Map.of(
                 "knowledgeBase", Map.of(
                         "id", kb.getId(),
                         "name", kb.getName(),
                         "fileSize", kb.getFileSize(),
-                        "contentLength", 0  // 不再存储content，所以长度为0
+                        "contentLength", 0
                 ),
                 "storage", Map.of(
                         "fileKey", kb.getStorageKey() != null ? kb.getStorageKey() : "",
@@ -64,6 +63,7 @@ public class KnowledgeBasePersistenceServiceImpl implements KnowledgeBasePersist
                                                  String storageKey, String storageUrl, String fileHash) {
         try {
             KnowledgeBaseEntity kb = new KnowledgeBaseEntity();
+            kb.setUserId(SecurityUtils.getUserId());
             kb.setFileHash(fileHash);
             kb.setName(name != null && !name.trim().isEmpty() ? name : extractNameFromFilename(file.getOriginalFilename()));
             kb.setCategory(category != null && !category.trim().isEmpty() ? category.trim() : null);
@@ -74,7 +74,7 @@ public class KnowledgeBasePersistenceServiceImpl implements KnowledgeBasePersist
             kb.setStorageUrl(storageUrl);
 
             KnowledgeBaseEntity saved = knowledgeBaseRepository.save(kb);
-            log.info("知识库已保存: id={}, name={}, category={}, hash={}", saved.getId(), saved.getName(), saved.getCategory(), fileHash);
+            log.info("知识库已保存: id={}, name={}, category={}, userId={}", saved.getId(), saved.getName(), saved.getCategory(), saved.getUserId());
             return saved;
         } catch (Exception e) {
             log.error("保存知识库失败: {}", e.getMessage(), e);
@@ -89,7 +89,7 @@ public class KnowledgeBasePersistenceServiceImpl implements KnowledgeBasePersist
     @Transactional(rollbackFor = Exception.class)
     public void updateVectorStatusToPending(Long kbId) {
         KnowledgeBaseEntity kb = knowledgeBaseRepository.findById(kbId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "知识库不存在"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.KNOWLEDGE_BASE_NOT_FOUND, "知识库不存在"));
 
         kb.setVectorStatus(VectorStatus.PENDING);
         kb.setVectorError(null);

@@ -58,4 +58,9 @@ public interface InterviewSessionService {
      * 生成评估报告
      */
     InterviewReportDTO generateReport(String sessionId);
+
+    /**
+     * 删除面试会话
+     */
+    void deleteSession(String sessionId);
 }

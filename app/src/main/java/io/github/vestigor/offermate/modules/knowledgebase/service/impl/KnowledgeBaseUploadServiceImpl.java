@@ -2,6 +2,7 @@ package io.github.vestigor.offermate.modules.knowledgebase.service.impl;
 
 import io.github.vestigor.offermate.common.exception.BusinessException;
 import io.github.vestigor.offermate.common.exception.ErrorCode;
+import io.github.vestigor.offermate.common.security.SecurityUtils;
 import io.github.vestigor.offermate.infrastructure.file.FileHashService;
 import io.github.vestigor.offermate.infrastructure.file.FileStorageService;
 import io.github.vestigor.offermate.infrastructure.file.FileValidationService;
@@ -54,11 +55,12 @@ public class KnowledgeBaseUploadServiceImpl implements KnowledgeBaseUploadServic
         String contentType = parseService.detectContentType(file);
         validateContentType(contentType, fileName);
 
-        // 检查知识库是否已存在
+        // 检查知识库是否已存在（用户维度去重）
         String fileHash = fileHashService.calculateHash(file);
-        Optional<KnowledgeBaseEntity> existingKb = knowledgeBaseRepository.findByFileHash(fileHash);
+        Long userId = SecurityUtils.getUserId();
+        Optional<KnowledgeBaseEntity> existingKb = knowledgeBaseRepository.findByUserIdAndFileHash(userId, fileHash);
         if (existingKb.isPresent()) {
-            log.info("检测到重复知识库: hash={}", fileHash);
+            log.info("检测到重复知识库: userId={}, hash={}", userId, fileHash);
             return persistenceService.handleDuplicateKnowledgeBase(existingKb.get(), fileHash);
         }
 
@@ -119,7 +121,7 @@ public class KnowledgeBaseUploadServiceImpl implements KnowledgeBaseUploadServic
     @Override
     public void reVectorize(Long kbId) {
         KnowledgeBaseEntity kb = knowledgeBaseRepository.findById(kbId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "知识库不存在"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.KNOWLEDGE_BASE_NOT_FOUND, "知识库不存在"));
 
         log.info("开始重新向量化知识库: kbId={}, name={}", kbId, kb.getName());
 

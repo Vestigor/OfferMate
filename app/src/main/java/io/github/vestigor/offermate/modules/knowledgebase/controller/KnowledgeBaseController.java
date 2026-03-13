@@ -89,7 +89,7 @@ public class KnowledgeBaseController {
     /**
      * 基于知识库回答问题（流式SSE，支持多知识库）
      */
-    @PostMapping(value = "/api/knowledgebase/query/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @PostMapping(value = "/query/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @RateLimit(dimensions = {RateLimit.Dimension.GLOBAL, RateLimit.Dimension.IP}, count = 5)
     public Flux<String> queryKnowledgeBaseStream(@Valid @RequestBody QueryRequest request) {
         log.debug("收到知识库流式查询请求: kbIds={}, question={}, 线程: {} (虚拟线程: {})",

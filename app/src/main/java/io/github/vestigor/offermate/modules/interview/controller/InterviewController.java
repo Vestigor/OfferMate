@@ -4,7 +4,6 @@ import io.github.vestigor.offermate.common.annotiation.RateLimit;
 import io.github.vestigor.offermate.common.result.Result;
 import io.github.vestigor.offermate.modules.interview.model.dto.*;
 import io.github.vestigor.offermate.modules.interview.service.InterviewHistoryService;
-import io.github.vestigor.offermate.modules.interview.service.InterviewPersistenceService;
 import io.github.vestigor.offermate.modules.interview.service.InterviewSessionService;
 
 import lombok.RequiredArgsConstructor;
@@ -25,11 +24,10 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/interview")
 @RequiredArgsConstructor
-class InterviewController {
+public class InterviewController {
 
     private final InterviewSessionService sessionService;
     private final InterviewHistoryService historyService;
-    private final InterviewPersistenceService persistenceService;
 
     /**
      * 创建面试会话
@@ -38,8 +36,7 @@ class InterviewController {
     @RateLimit(dimensions = {RateLimit.Dimension.GLOBAL, RateLimit.Dimension.IP}, count = 5)
     public Result<InterviewSessionDTO> createSession(@RequestBody CreateInterviewRequest request) {
         log.info("创建面试会话，题目数量: {}", request.questionCount());
-        InterviewSessionDTO session = sessionService.createSession(request);
-        return Result.success(session);
+        return Result.success(sessionService.createSession(request));
     }
 
     /**
@@ -47,8 +44,7 @@ class InterviewController {
      */
     @GetMapping("/sessions/{sessionId}")
     public Result<InterviewSessionDTO> getSession(@PathVariable String sessionId) {
-        InterviewSessionDTO session = sessionService.getSession(sessionId);
-        return Result.success(session);
+        return Result.success(sessionService.getSession(sessionId));
     }
 
     /**
@@ -70,9 +66,7 @@ class InterviewController {
         Integer questionIndex = (Integer) body.get("questionIndex");
         String answer = (String) body.get("answer");
         log.info("提交答案: 会话{}, 问题{}", sessionId, questionIndex);
-        SubmitAnswerRequest request = new SubmitAnswerRequest(sessionId, questionIndex, answer);
-        SubmitAnswerResponse response = sessionService.submitAnswer(request);
-        return Result.success(response);
+        return Result.success(sessionService.submitAnswer(new SubmitAnswerRequest(sessionId, questionIndex, answer)));
     }
 
     /**
@@ -81,8 +75,7 @@ class InterviewController {
     @GetMapping("/sessions/{sessionId}/report")
     public Result<InterviewReportDTO> getReport(@PathVariable String sessionId) {
         log.info("生成面试报告: {}", sessionId);
-        InterviewReportDTO report = sessionService.generateReport(sessionId);
-        return Result.success(report);
+        return Result.success(sessionService.generateReport(sessionId));
     }
 
     /**
@@ -103,8 +96,7 @@ class InterviewController {
         Integer questionIndex = (Integer) body.get("questionIndex");
         String answer = (String) body.get("answer");
         log.info("暂存答案: 会话{}, 问题{}", sessionId, questionIndex);
-        SubmitAnswerRequest request = new SubmitAnswerRequest(sessionId, questionIndex, answer);
-        sessionService.saveAnswer(request);
+        sessionService.saveAnswer(new SubmitAnswerRequest(sessionId, questionIndex, answer));
         return Result.success(null);
     }
 
@@ -123,8 +115,7 @@ class InterviewController {
      */
     @GetMapping("/sessions/{sessionId}/details")
     public Result<InterviewDetailDTO> getInterviewDetail(@PathVariable String sessionId) {
-        InterviewDetailDTO detail = historyService.getInterviewDetail(sessionId);
-        return Result.success(detail);
+        return Result.success(historyService.getInterviewDetail(sessionId));
     }
 
     /**
@@ -136,7 +127,6 @@ class InterviewController {
             byte[] pdfBytes = historyService.exportInterviewPdf(sessionId);
             String filename = URLEncoder.encode("模拟面试报告_" + sessionId + ".pdf",
                     StandardCharsets.UTF_8);
-
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename*=UTF-8''" + filename)
                     .contentType(MediaType.APPLICATION_PDF)
@@ -150,10 +140,10 @@ class InterviewController {
     /**
      * 删除面试会话
      */
-    @DeleteMapping("/api/interview/sessions/{sessionId}")
+    @DeleteMapping("/sessions/{sessionId}")
     public Result<Void> deleteInterview(@PathVariable String sessionId) {
         log.info("删除面试会话: {}", sessionId);
-        persistenceService.deleteSessionBySessionId(sessionId);
+        sessionService.deleteSession(sessionId);
         return Result.success(null);
     }
 

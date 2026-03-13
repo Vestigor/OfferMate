@@ -165,7 +165,7 @@ public class AuthServiceImpl implements AuthService {
 
         refreshTokenService.revokeAndBlacklistCurrent(username);
 
-        userDataCleanupService.cleanupUserData();
+        userDataCleanupService.cleanupUserData(userId);
 
         userRepository.delete(user);
         SecurityContextHolder.clearContext();

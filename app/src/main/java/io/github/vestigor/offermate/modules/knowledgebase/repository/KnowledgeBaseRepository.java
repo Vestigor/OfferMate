@@ -15,101 +15,51 @@ import java.util.Optional;
 @Repository
 public interface KnowledgeBaseRepository extends JpaRepository<KnowledgeBaseEntity, Long> {
 
-    /**
-     * 根据文件哈希查找知识库（用于去重）
-     */
-    Optional<KnowledgeBaseEntity> findByFileHash(String fileHash);
+    // ==================== 去重查询 ====================
 
-    /**
-     * 检查文件哈希是否存在
-     */
-    boolean existsByFileHash(String fileHash);
+    Optional<KnowledgeBaseEntity> findByUserIdAndFileHash(Long userId, String fileHash);
 
-    /**
-     * 按上传时间倒序查找所有知识库
-     */
-    List<KnowledgeBaseEntity> findAllByOrderByUploadedAtDesc();
+    boolean existsByUserIdAndFileHash(Long userId, String fileHash);
 
-    /**
-     * 获取所有不同的分类
-     */
-    @Query("SELECT DISTINCT k.category FROM KnowledgeBaseEntity k WHERE k.category IS NOT NULL ORDER BY k.category")
-    List<String> findAllCategories();
+    // ==================== 用户维度查询 ====================
 
-    /**
-     * 根据分类查找知识库
-     */
-    List<KnowledgeBaseEntity> findByCategoryOrderByUploadedAtDesc(String category);
+    List<KnowledgeBaseEntity> findByUserIdOrderByUploadedAtDesc(Long userId);
 
-    /**
-     * 查找未分类的知识库
-     */
-    List<KnowledgeBaseEntity> findByCategoryIsNullOrderByUploadedAtDesc();
+    List<KnowledgeBaseEntity> findByUserId(Long userId);
 
-    /**
-     * 按名称或文件名模糊搜索（不区分大小写）
-     */
-    @Query("SELECT k FROM KnowledgeBaseEntity k WHERE LOWER(k.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(k.originalFilename) LIKE LOWER(CONCAT('%', :keyword, '%')) ORDER BY k.uploadedAt DESC")
-    List<KnowledgeBaseEntity> searchByKeyword(@Param("keyword") String keyword);
+    @Modifying
+    void deleteByUserId(Long userId);
 
-    /**
-     * 按文件大小排序
-     */
-    List<KnowledgeBaseEntity> findAllByOrderByFileSizeDesc();
+    // ==================== 状态过滤 ====================
 
-    /**
-     * 按访问次数排序
-     */
-    List<KnowledgeBaseEntity> findAllByOrderByAccessCountDesc();
+    List<KnowledgeBaseEntity> findByUserIdAndVectorStatusOrderByUploadedAtDesc(Long userId, VectorStatus vectorStatus);
 
-    /**
-     * 按提问次数排序
-     */
-    List<KnowledgeBaseEntity> findAllByOrderByQuestionCountDesc();
+    // ==================== 分类查询 ====================
+
+    List<KnowledgeBaseEntity> findByUserIdAndCategoryOrderByUploadedAtDesc(Long userId, String category);
+
+    List<KnowledgeBaseEntity> findByUserIdAndCategoryIsNullOrderByUploadedAtDesc(Long userId);
+
+    @Query("SELECT DISTINCT k.category FROM KnowledgeBaseEntity k WHERE k.userId = :userId AND k.category IS NOT NULL ORDER BY k.category")
+    List<String> findCategoriesByUserId(@Param("userId") Long userId);
+
+    // ==================== 搜索 ====================
+
+    @Query("SELECT k FROM KnowledgeBaseEntity k WHERE k.userId = :userId AND (LOWER(k.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR LOWER(k.originalFilename) LIKE LOWER(CONCAT('%', :keyword, '%'))) ORDER BY k.uploadedAt DESC")
+    List<KnowledgeBaseEntity> searchByUserIdAndKeyword(@Param("userId") Long userId, @Param("keyword") String keyword);
 
     // ==================== 批量更新 ====================
 
-    /**
-     * 批量增加知识库提问计数
-     * @param ids 知识库ID列表
-     * @return 更新的行数
-     */
     @Modifying
     @Query("UPDATE KnowledgeBaseEntity k SET k.questionCount = k.questionCount + 1 WHERE k.id IN :ids")
     int incrementQuestionCountBatch(@Param("ids") List<Long> ids);
 
     // ==================== 统计查询 ====================
 
-    /**
-     * 统计总提问次数
-     */
-    @Query("SELECT COALESCE(SUM(k.questionCount), 0) FROM KnowledgeBaseEntity k")
-    long sumQuestionCount();
+    long countByUserId(Long userId);
 
-    /**
-     * 统计总访问次数
-     */
-    @Query("SELECT COALESCE(SUM(k.accessCount), 0) FROM KnowledgeBaseEntity k")
-    long sumAccessCount();
+    long countByUserIdAndVectorStatus(Long userId, VectorStatus vectorStatus);
 
-    /**
-     * 按向量化状态统计数量
-     */
-    long countByVectorStatus(VectorStatus vectorStatus);
-
-    /**
-     * 按向量化状态查找知识库（按上传时间倒序）
-     */
-    List<KnowledgeBaseEntity> findByVectorStatusOrderByUploadedAtDesc(VectorStatus vectorStatus);
-
-    /**
-     * 根据用户ID查找所有知识库
-     */
-    List<KnowledgeBaseEntity> findByUserId(Long userId);
-
-    /**
-     * 根据用户ID删除所有知识库
-     */
-    @Modifying
-    void deleteByUserId(Long userId);
+    @Query("SELECT COALESCE(SUM(k.accessCount), 0) FROM KnowledgeBaseEntity k WHERE k.userId = :userId")
+    long sumAccessCountByUserId(@Param("userId") Long userId);
 }

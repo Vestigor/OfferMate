@@ -52,6 +52,8 @@ public enum ErrorCode {
     KNOWLEDGE_BASE_QUERY_FAILED(6004, "知识库查询失败"),
     KNOWLEDGE_BASE_DELETE_FAILED(6005, "知识库删除失败"),
     KNOWLEDGE_BASE_VECTORIZATION_FAILED(6006, "知识库向量化失败"),
+    RAG_CHAT_SESSION_NOT_FOUND(6007, "聊天会话不存在"),
+    RAG_CHAT_MESSAGE_NOT_FOUND(6008, "聊天消息不存在"),
 
     // ========== AI服务错误 7xxx ==========
     AI_SERVICE_UNAVAILABLE(7001, "AI服务暂时不可用，请稍后重试"),

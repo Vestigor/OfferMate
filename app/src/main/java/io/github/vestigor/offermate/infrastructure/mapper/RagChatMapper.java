@@ -71,16 +71,8 @@ public interface RagChatMapper {
      * 将会话实体转换为会话列表项DTO
      */
     @Mapping(target = "knowledgeBaseNames", source = "session.knowledgeBases", qualifiedByName = "extractKnowledgeBaseNames")
-    @Mapping(target = "isPinned", source = "session", qualifiedByName = "getIsPinnedWithDefault")
+    @Mapping(target = "isPinned", source = "session.isPinned")
     SessionListItemDTO toSessionListItemDTO(RagChatSessionEntity session);
-
-    /**
-     * 处理isPinned的null值，默认为false
-     */
-    @Named("getIsPinnedWithDefault")
-    default Boolean getIsPinnedWithDefault(RagChatSessionEntity session) {
-        return session.getIsPinned() != null ? session.getIsPinned() : false;
-    }
 
     /**
      * 将会话实体和消息列表转换为会话详情DTO

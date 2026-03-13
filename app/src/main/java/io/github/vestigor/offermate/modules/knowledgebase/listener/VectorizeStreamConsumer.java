@@ -1,4 +1,4 @@
-package interview.guide.modules.knowledgebase.listener;
+package io.github.vestigor.offermate.modules.knowledgebase.listener;
 
 import io.github.vestigor.offermate.common.async.AbstractStreamConsumer;
 import io.github.vestigor.offermate.common.constant.AsyncTaskStreamConstants;

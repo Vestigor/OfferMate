@@ -87,4 +87,13 @@ public class AuthController {
         AuthResponse response = authService.refreshToken(refreshToken);
         return Result.success("Token 刷新成功", response);
     }
+
+    /**
+     * 验证当前 Token 是否有效（供前端页面刷新时调用）
+     * 无需额外逻辑：JWT 过滤器已在到达此处前完成验证，能到达此处说明 token 有效
+     */
+    @GetMapping("/validate")
+    public Result<Void> validateToken() {
+        return Result.success(null);
+    }
 }

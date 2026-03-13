@@ -477,6 +477,15 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
     }
 
     /**
+     * 删除面试会话（清理缓存并删除数据库记录）
+     */
+    @Override
+    public void deleteSession(String sessionId) {
+        sessionCache.deleteSession(sessionId);
+        persistenceService.deleteSessionBySessionId(sessionId);
+    }
+
+    /**
      * 将缓存会话转换为 DTO
      */
     private InterviewSessionDTO toDTO(InterviewSessionCache.CachedSession session) {

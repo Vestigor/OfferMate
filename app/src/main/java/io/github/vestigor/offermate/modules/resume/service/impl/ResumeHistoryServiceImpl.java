@@ -13,8 +13,8 @@ import io.github.vestigor.offermate.modules.resume.model.dto.ResumeListItemDTO;
 import io.github.vestigor.offermate.modules.resume.model.entity.ResumeAnalysisEntity;
 import io.github.vestigor.offermate.modules.resume.model.entity.ResumeEntity;
 import io.github.vestigor.offermate.modules.resume.service.ResumeHistoryService;
-
 import io.github.vestigor.offermate.modules.resume.service.ResumePersistenceService;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -41,11 +41,11 @@ public class ResumeHistoryServiceImpl implements ResumeHistoryService {
     /**
      * 获取用户所有简历列表
      */
+    @Override
     public List<ResumeListItemDTO> getUserAllResumes() {
         List<ResumeEntity> resumes = resumePersistenceService.findUserAllResumes();
 
         return resumes.stream().map(resume -> {
-            // 获取最新分析结果的分数
             Integer latestScore = null;
             LocalDateTime lastAnalyzedAt = null;
             Optional<ResumeAnalysisEntity> analysisOpt = resumePersistenceService.getLatestAnalysis(resume.getId());
@@ -54,36 +54,19 @@ public class ResumeHistoryServiceImpl implements ResumeHistoryService {
                 latestScore = analysis.getOverallScore();
                 lastAnalyzedAt = analysis.getAnalyzedAt();
             }
-
-            // 获取面试次数
             int interviewCount = interviewPersistenceService.findByResumeId(resume.getId()).size();
-
-            // 使用 MapStruct 映射
-            return new ResumeListItemDTO(
-                    resume.getId(),
-                    resume.getOriginalFilename(),
-                    resume.getFileSize(),
-                    resume.getUploadedAt(),
-                    resume.getAccessCount(),
-                    latestScore,
-                    lastAnalyzedAt,
-                    interviewCount
-            );
+            return resumeMapper.toListItemDTO(resume, latestScore, lastAnalyzedAt, interviewCount);
         }).toList();
     }
 
     /**
      * 获取简历详情（包含分析历史）
      */
+    @Override
     public ResumeDetailDTO getResumeDetail(Long id) {
-        Optional<ResumeEntity> resumeOpt = resumePersistenceService.findById(id);
-        if (resumeOpt.isEmpty()) {
-            throw new BusinessException(ErrorCode.RESUME_NOT_FOUND);
-        }
+        ResumeEntity resume = resumePersistenceService.findById(id)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESUME_NOT_FOUND));
 
-        ResumeEntity resume = resumeOpt.get();
-
-        // 获取所有分析记录，使用 MapStruct 批量转换
         List<ResumeAnalysisEntity> analyses = resumePersistenceService.findAnalysesByResumeId(id);
         List<ResumeDetailDTO.AnalysisHistoryDTO> analysisHistory = resumeMapper.toAnalysisHistoryDTOList(
                 analyses,
@@ -91,25 +74,11 @@ public class ResumeHistoryServiceImpl implements ResumeHistoryService {
                 this::extractSuggestions
         );
 
-        // 使用 InterviewMapper 转换面试历史
         List<Object> interviewHistory = interviewMapper.toInterviewHistoryList(
                 interviewPersistenceService.findByResumeId(id)
         );
 
-        return new ResumeDetailDTO(
-                resume.getId(),
-                resume.getOriginalFilename(),
-                resume.getFileSize(),
-                resume.getContentType(),
-                resume.getStorageUrl(),
-                resume.getUploadedAt(),
-                resume.getAccessCount(),
-                resume.getResumeText(),
-                resume.getAnalyzeStatus(),
-                resume.getAnalyzeError(),
-                analysisHistory,
-                interviewHistory
-        );
+        return resumeMapper.toDetailDTO(resume, analysisHistory, interviewHistory);
     }
 
     /**
@@ -118,11 +87,7 @@ public class ResumeHistoryServiceImpl implements ResumeHistoryService {
     private List<String> extractStrengths(ResumeAnalysisEntity entity) {
         try {
             if (entity.getStrengthsJson() != null) {
-                return objectMapper.readValue(
-                        entity.getStrengthsJson(),
-                        new TypeReference<>() {
-                        }
-                );
+                return objectMapper.readValue(entity.getStrengthsJson(), new TypeReference<>() {});
             }
         } catch (JacksonException e) {
             log.error("解析 strengths JSON 失败", e);
@@ -136,11 +101,7 @@ public class ResumeHistoryServiceImpl implements ResumeHistoryService {
     private List<Object> extractSuggestions(ResumeAnalysisEntity entity) {
         try {
             if (entity.getSuggestionsJson() != null) {
-                return objectMapper.readValue(
-                        entity.getSuggestionsJson(),
-                        new TypeReference<>() {
-                        }
-                );
+                return objectMapper.readValue(entity.getSuggestionsJson(), new TypeReference<>() {});
             }
         } catch (JacksonException e) {
             log.error("解析 suggestions JSON 失败", e);
@@ -151,22 +112,17 @@ public class ResumeHistoryServiceImpl implements ResumeHistoryService {
     /**
      * 导出简历分析报告为PDF
      */
+    @Override
     public ExportResult exportAnalysisPdf(Long resumeId) {
-        Optional<ResumeEntity> resumeOpt = resumePersistenceService.findById(resumeId);
-        if (resumeOpt.isEmpty()) {
-            throw new BusinessException(ErrorCode.RESUME_NOT_FOUND);
-        }
+        ResumeEntity resume = resumePersistenceService.findById(resumeId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESUME_NOT_FOUND));
 
-        ResumeEntity resume = resumeOpt.get();
-        Optional<ResumeAnalysisResponse> analysisOpt = resumePersistenceService.getLatestAnalysisAsDTO(resumeId);
-        if (analysisOpt.isEmpty()) {
-            throw new BusinessException(ErrorCode.RESUME_ANALYSIS_NOT_FOUND);
-        }
+        ResumeAnalysisResponse analysis = resumePersistenceService.getLatestAnalysisAsDTO(resumeId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESUME_ANALYSIS_NOT_FOUND));
 
         try {
-            byte[] pdfBytes = pdfExportService.exportResumeAnalysis(resume, analysisOpt.get());
+            byte[] pdfBytes = pdfExportService.exportResumeAnalysis(resume, analysis);
             String filename = "简历分析报告_" + resume.getOriginalFilename() + ".pdf";
-
             return new ExportResult(pdfBytes, filename);
         } catch (Exception e) {
             log.error("导出PDF失败: resumeId={}", resumeId, e);

@@ -79,7 +79,7 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         }
 
         if (stored == null) {
-            throw new BusinessException(ErrorCode.INVALID_TOKEN, "Refresh token 已过期或已被撤销");
+            throw new BusinessException(ErrorCode.TOKEN_EXPIRED, "Refresh token 已过期或已被撤销");
         }
 
         // 解析用户信息

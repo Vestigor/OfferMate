@@ -62,13 +62,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     log.debug("已设置用户认证: {}", username);
                 }
             }
-        }catch (ExpiredJwtException e) {
-            throw new BusinessException(ErrorCode.TOKEN_EXPIRED);
-        }catch (JwtException e) {
-            throw new BusinessException(ErrorCode.INVALID_TOKEN);
+        } catch (BusinessException e){
+            writeErrorResponse(response, ErrorCode.TOKEN_BLACKLISTED);
+            return;
+        } catch (ExpiredJwtException e) {
+            writeErrorResponse(response, ErrorCode.TOKEN_EXPIRED);
+            return;
+        } catch (JwtException e) {
+            writeErrorResponse(response, ErrorCode.INVALID_TOKEN);
+            return;
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * 直接向响应写入 JSON 错误体（HTTP 200 + 业务错误码）
+     * 过滤器中抛出异常无法被 @RestControllerAdvice 捕获，必须在此直接写响应
+     */
+    private void writeErrorResponse(HttpServletResponse response, ErrorCode errorCode) throws IOException {
+        response.setStatus(HttpServletResponse.SC_OK);
+        response.setContentType("application/json;charset=UTF-8");
+        String body = String.format(
+                "{\"code\":%d,\"message\":\"%s\",\"data\":null}",
+                errorCode.getCode(), errorCode.getMessage()
+        );
+        response.getWriter().write(body);
     }
 
     /**
