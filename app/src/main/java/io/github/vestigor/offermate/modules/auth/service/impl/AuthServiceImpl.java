@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.InternalAuthenticationServiceException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -79,6 +80,14 @@ public class AuthServiceImpl implements AuthService {
                     )
             );
             SecurityContextHolder.getContext().setAuthentication(authentication);
+        } catch (InternalAuthenticationServiceException e) {
+            if (e.getCause() instanceof BusinessException businessException &&
+                    businessException.getCode() == ErrorCode.USER_NOT_FOUND.getCode()) {
+                log.warn("登录失败，用户不存在：username={}", request.username());
+                throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+            }
+            log.error("登录失败，认证异常：username={}", request.username(), e);
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "登录认证失败，请稍后重试");
         } catch (UsernameNotFoundException e) {
             log.warn("登录失败，用户不存在: username={}", request.username());
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);

@@ -17,6 +17,26 @@ public interface InterviewPersistenceService {
     InterviewSessionEntity saveSession(String sessionId, Long resumeId, int totalQuestions, List<InterviewQuestionDTO> questions);
 
     /**
+     * 保存题目生成中的面试会话（异步生成模式，状态为GENERATING）
+     */
+    InterviewSessionEntity saveSessionForGenerate(String sessionId, Long resumeId, int requestedQuestionCount);
+
+    /**
+     * 题目生成完成后更新会话（保存题目、更新状态为CREATED）
+     */
+    void updateSessionAfterGenerate(String sessionId, List<InterviewQuestionDTO> questions, int followUpCount);
+
+    /**
+     * 设置题目生成错误
+     */
+    void setGenerateError(String sessionId, String error);
+
+    /**
+     * 查找指定状态的最新面试会话
+     */
+    Optional<InterviewSessionEntity> findFirstByResumeIdAndStatus(Long resumeId, InterviewSessionEntity.SessionStatus status);
+
+    /**
      * 更新会话状态
      */
     void updateSessionStatus(String sessionId, InterviewSessionEntity.SessionStatus status);

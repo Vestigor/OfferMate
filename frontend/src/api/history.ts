@@ -44,6 +44,8 @@ export interface InterviewItem {
   status: string;
   evaluateStatus?: EvaluateStatus;
   evaluateError?: string;
+  generateError?: string;
+  followUpCount?: number;
   overallScore: number | null;
   overallFeedback: string | null;
   createdAt: string;

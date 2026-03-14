@@ -1,5 +1,5 @@
 import {useCallback, useEffect, useState} from 'react';
-import {useLocation} from 'react-router-dom';
+import {useLocation, useNavigate} from 'react-router-dom';
 import {AnimatePresence, motion} from 'framer-motion';
 import {historyApi, InterviewDetail, ResumeDetail} from '../api/history';
 import AnalysisPanel from '../components/AnalysisPanel';
@@ -19,6 +19,7 @@ type DetailViewType = 'list' | 'interviewDetail';
 
 export default function ResumeDetailPage({ resumeId, onBack, onStartInterview }: ResumeDetailPageProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [resume, setResume] = useState<ResumeDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('analysis');
@@ -72,6 +73,15 @@ export default function ResumeDetailPage({ resumeId, onBack, onStartInterview }:
       return () => clearInterval(timer);
     }
   }, [resume, loading, loadResumeDetailSilent]);
+
+  // 轮询：当有面试题目生成中时，每3秒刷新一次
+  useEffect(() => {
+    const hasGenerating = resume?.interviews?.some(i => i.status === 'GENERATING');
+    if (hasGenerating && !loading) {
+      const timer = setInterval(loadResumeDetailSilent, 3000);
+      return () => clearInterval(timer);
+    }
+  }, [resume?.interviews, loading, loadResumeDetailSilent]);
 
   // 重新分析
   const handleReanalyze = async () => {
@@ -147,7 +157,22 @@ export default function ResumeDetailPage({ resumeId, onBack, onStartInterview }:
     }
   };
 
-  const handleViewInterview = async (sessionId: string) => {
+  // 从已有题目的会话直接开始面试（携带 autoStart 标志，跳过配置页）
+  const handleStartFromSession = () => {
+    navigate(`/interview/${resumeId}`, {
+      state: { resumeText: resume!.resumeText, autoStart: true }
+    });
+  };
+
+  const handleViewInterview = async (sessionId: string, status?: string) => {
+    if (status === 'IN_PROGRESS') {
+      // 继续未完成的面试，携带 autoStart 自动恢复
+      navigate(`/interview/${resumeId}`, {
+        state: { resumeText: resume!.resumeText, autoStart: true }
+      });
+      return;
+    }
+    // COMPLETED/EVALUATED: 显示面试详情
     setLoadingInterview(true);
     try {
       const detail = await historyApi.getInterviewDetail(sessionId);
@@ -269,17 +294,22 @@ export default function ResumeDetailPage({ resumeId, onBack, onStartInterview }:
               {exporting === selectedInterview.sessionId ? '导出中...' : '导出 PDF'}
             </motion.button>
           )}
-          {detailView !== 'interviewDetail' && (
-            <motion.button
-              onClick={() => onStartInterview(resume.resumeText, resumeId)}
-              className="px-5 py-2.5 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl font-medium shadow-lg shadow-primary-500/30 hover:shadow-xl transition-all flex items-center gap-2"
-              whileHover={{ scale: 1.02, y: -1 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <Mic className="w-4 h-4" />
-              开始模拟面试
-            </motion.button>
-          )}
+          {detailView !== 'interviewDetail' && (() => {
+            const isAnalyzing = resume.analyzeStatus === 'PENDING' || resume.analyzeStatus === 'PROCESSING';
+            return (
+              <motion.button
+                onClick={() => { if (!isAnalyzing) onStartInterview(resume.resumeText, resumeId); }}
+                disabled={isAnalyzing}
+                className="px-5 py-2.5 bg-gradient-to-r from-primary-500 to-primary-600 text-white rounded-xl font-medium shadow-lg shadow-primary-500/30 hover:shadow-xl transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none disabled:pointer-events-none"
+                whileHover={{ scale: isAnalyzing ? 1 : 1.02, y: isAnalyzing ? 0 : -1 }}
+                whileTap={{ scale: isAnalyzing ? 1 : 0.98 }}
+                title={isAnalyzing ? '简历分析中，请等待分析完成后再开始面试' : undefined}
+              >
+                <Mic className="w-4 h-4" />
+                {isAnalyzing ? '简历分析中...' : '开始模拟面试'}
+              </motion.button>
+            );
+          })()}
         </div>
       </div>
 
@@ -343,8 +373,10 @@ export default function ResumeDetailPage({ resumeId, onBack, onStartInterview }:
               ) : (
                   <InterviewPanel
                       interviews={resume.interviews || []}
+                  analyzeStatus={resume.analyzeStatus}
                   onStartInterview={() => onStartInterview(resume.resumeText, resumeId)}
                   onViewInterview={handleViewInterview}
+                  onStartFromSession={handleStartFromSession}
                   onExportInterview={handleExportInterviewPdf}
                   onDeleteInterview={handleDeleteInterview}
                   exporting={exporting}

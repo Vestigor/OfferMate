@@ -109,5 +109,27 @@ public final class AsyncTaskStreamConstants {
      * 面试会话ID字段
      */
     public static final String FIELD_SESSION_ID = "sessionId";
+
+    // ========== 面试题目生成 Stream 配置 ==========
+
+    /**
+     * 面试题目生成 Stream Key
+     */
+    public static final String INTERVIEW_GENERATE_STREAM_KEY = "interview:generate:stream";
+
+    /**
+     * 面试题目生成 Consumer Group 名称
+     */
+    public static final String INTERVIEW_GENERATE_GROUP_NAME = "generate-group";
+
+    /**
+     * 面试题目生成 Consumer 名称前缀
+     */
+    public static final String INTERVIEW_GENERATE_CONSUMER_PREFIX = "generate-consumer-";
+
+    /**
+     * 题目数量字段
+     */
+    public static final String FIELD_QUESTION_COUNT = "questionCount";
 }
 

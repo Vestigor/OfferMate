@@ -53,8 +53,8 @@ export default function LoginPage() {
             <Sparkles className="w-6 h-6" />
           </div>
           <div>
-            <span className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight block">AI Interview</span>
-            <span className="text-sm text-slate-400 dark:text-slate-500">智能面试助手</span>
+            <span className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight block">Offer Mate</span>
+            <span className="text-sm text-slate-400 dark:text-slate-500">AI 求职助手</span>
           </div>
         </div>
 

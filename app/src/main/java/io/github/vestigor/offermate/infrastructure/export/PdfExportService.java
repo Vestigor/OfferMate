@@ -302,6 +302,7 @@ public class PdfExportService {
 
     private String getStatusText(InterviewSessionEntity.SessionStatus status) {
         return switch (status) {
+            case GENERATING -> "正在生成";
             case CREATED -> "已创建";
             case IN_PROGRESS -> "进行中";
             case COMPLETED -> "已完成";

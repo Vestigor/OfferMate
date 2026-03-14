@@ -1,4 +1,5 @@
 import {useEffect, useState} from 'react';
+import {useLocation} from 'react-router-dom';
 import {AnimatePresence, motion} from 'framer-motion';
 import {interviewApi} from '../api/interview';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -23,6 +24,8 @@ interface InterviewProps {
 }
 
 export default function Interview({ resumeText, resumeId, onBack, onInterviewComplete }: InterviewProps) {
+  const location = useLocation();
+  const autoStart = !!(location.state as { autoStart?: boolean })?.autoStart;
   const [stage, setStage] = useState<InterviewStage>('config');
   const [questionCount, setQuestionCount] = useState(8);
   const [session, setSession] = useState<InterviewSession | null>(null);
@@ -52,7 +55,11 @@ export default function Interview({ resumeText, resumeId, onBack, onInterviewCom
     try {
       const foundSession = await interviewApi.findUnfinishedSession(resumeId);
       if (foundSession) {
-        setUnfinishedSession(foundSession);
+        if (autoStart && foundSession.status !== 'GENERATING') {
+          restoreSession(foundSession);
+        } else {
+          setUnfinishedSession(foundSession);
+        }
       }
     } catch (err) {
       console.error('检查未完成面试失败', err);
@@ -63,6 +70,11 @@ export default function Interview({ resumeText, resumeId, onBack, onInterviewCom
 
   const handleContinueUnfinished = () => {
     if (!unfinishedSession) return;
+    // GENERATING 状态：直接跳转到面试记录页
+    if (unfinishedSession.status === 'GENERATING') {
+      onInterviewComplete();
+      return;
+    }
     setForceCreateNew(false);  // 重置强制创建标志
     restoreSession(unfinishedSession);
     setUnfinishedSession(null);
@@ -124,6 +136,12 @@ export default function Interview({ resumeText, resumeId, onBack, onInterviewCom
 
             // 重置强制创建标志
       setForceCreateNew(false);
+
+      // GENERATING 状态：题目正在异步生成，跳转到面试记录页
+      if (newSession.status === 'GENERATING') {
+        onInterviewComplete();
+        return;
+      }
 
             // 如果返回的是未完成的会话（currentQuestionIndex > 0 或已有答案），恢复它
             const hasProgress = newSession.currentQuestionIndex > 0 ||

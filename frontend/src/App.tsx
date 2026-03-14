@@ -199,7 +199,17 @@ function InterviewHistoryWrapper() {
     }
   };
 
-  return <InterviewHistoryPage onBack={handleBack} onViewInterview={handleViewInterview} />;
+  const handleContinueInterview = (resumeId: number) => {
+    navigate(`/interview/${resumeId}`);
+  };
+
+  return (
+    <InterviewHistoryPage
+      onBack={handleBack}
+      onViewInterview={handleViewInterview}
+      onContinueInterview={handleContinueInterview}
+    />
+  );
 }
 
 // 知识库管理页面包装器

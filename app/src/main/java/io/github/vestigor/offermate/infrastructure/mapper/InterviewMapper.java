@@ -74,6 +74,8 @@ public interface InterviewMapper {
     @Mapping(target = "status",          expression = "java(session.getStatus().toString())")
     @Mapping(target = "evaluateStatus",  expression = "java(session.getEvaluateStatus() != null ? session.getEvaluateStatus().name() : null)")
     @Mapping(target = "evaluateError",   source = "session.evaluateError")
+    @Mapping(target = "generateError",   source = "session.generateError")
+    @Mapping(target = "followUpCount",   source = "session.followUpCount")
     @Mapping(target = "questions",       source = "questions")
     @Mapping(target = "strengths",       source = "strengths")
     @Mapping(target = "improvements",    source = "improvements")
@@ -122,6 +124,8 @@ public interface InterviewMapper {
         map.put("status",         session.getStatus().toString());
         map.put("evaluateStatus", session.getEvaluateStatus() != null ? session.getEvaluateStatus().name() : null);
         map.put("evaluateError",  session.getEvaluateError());
+        map.put("generateError",  session.getGenerateError());
+        map.put("followUpCount",  session.getFollowUpCount());
         map.put("overallScore",   session.getOverallScore());
         map.put("createdAt",      session.getCreatedAt());
         map.put("completedAt",    session.getCompletedAt());

@@ -67,6 +67,78 @@ public class InterviewPersistenceServiceImpl implements InterviewPersistenceServ
     }
 
     /**
+     * 保存题目生成中的面试会话（异步生成模式）
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public InterviewSessionEntity saveSessionForGenerate(String sessionId, Long resumeId, int requestedQuestionCount) {
+        Optional<ResumeEntity> resumeOpt = resumeRepository.findById(resumeId);
+        if (resumeOpt.isEmpty()) {
+            throw new BusinessException(ErrorCode.RESUME_NOT_FOUND);
+        }
+
+        InterviewSessionEntity session = new InterviewSessionEntity();
+        session.setSessionId(sessionId);
+        session.setResume(resumeOpt.get());
+        session.setTotalQuestions(requestedQuestionCount);
+        session.setCurrentQuestionIndex(0);
+        session.setStatus(InterviewSessionEntity.SessionStatus.GENERATING);
+        session.setQuestionsJson("[]");
+
+        InterviewSessionEntity saved = sessionRepository.save(session);
+        log.info("面试会话（生成中）已保存: sessionId={}, resumeId={}", sessionId, resumeId);
+        return saved;
+    }
+
+    /**
+     * 题目生成完成后更新会话
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateSessionAfterGenerate(String sessionId, List<InterviewQuestionDTO> questions, int followUpCount) {
+        try {
+            Optional<InterviewSessionEntity> sessionOpt = sessionRepository.findBySessionId(sessionId);
+            if (sessionOpt.isEmpty()) {
+                log.warn("会话不存在，跳过生成完成更新: sessionId={}", sessionId);
+                return;
+            }
+            InterviewSessionEntity session = sessionOpt.get();
+            session.setQuestionsJson(objectMapper.writeValueAsString(questions));
+            session.setTotalQuestions(questions.size());
+            session.setFollowUpCount(followUpCount);
+            session.setStatus(InterviewSessionEntity.SessionStatus.CREATED);
+            session.setGenerateError(null);
+            sessionRepository.save(session);
+            log.info("题目生成完成，会话已更新: sessionId={}, totalQuestions={}, followUpCount={}",
+                    sessionId, questions.size(), followUpCount);
+        } catch (JacksonException e) {
+            log.error("序列化问题列表失败: {}", e.getMessage(), e);
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "更新会话失败");
+        }
+    }
+
+    /**
+     * 设置题目生成错误
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void setGenerateError(String sessionId, String error) {
+        sessionRepository.findBySessionId(sessionId).ifPresent(session -> {
+            session.setGenerateError(error != null && error.length() > 500 ? error.substring(0, 500) : error);
+            sessionRepository.save(session);
+            log.debug("题目生成错误已记录: sessionId={}", sessionId);
+        });
+    }
+
+    /**
+     * 查找指定状态的最新面试会话
+     */
+    @Override
+    public Optional<InterviewSessionEntity> findFirstByResumeIdAndStatus(Long resumeId, InterviewSessionEntity.SessionStatus status) {
+        return sessionRepository.findFirstByResumeIdAndStatusInOrderByCreatedAtDesc(resumeId, List.of(status));
+    }
+
+    /**
      * 更新会话状态
      */
     @Override
@@ -286,11 +358,12 @@ public class InterviewPersistenceServiceImpl implements InterviewPersistenceServ
     }
 
     /**
-     * 查找未完成的面试会话（CREATED或IN_PROGRESS状态）
+     * 查找未完成的面试会话（GENERATING、CREATED或IN_PROGRESS状态）
      */
     @Override
     public Optional<InterviewSessionEntity> findUnfinishedSession(Long resumeId) {
         List<InterviewSessionEntity.SessionStatus> unfinishedStatuses = List.of(
+                InterviewSessionEntity.SessionStatus.GENERATING,
                 InterviewSessionEntity.SessionStatus.CREATED,
                 InterviewSessionEntity.SessionStatus.IN_PROGRESS
         );

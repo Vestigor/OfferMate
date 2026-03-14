@@ -24,11 +24,11 @@ export interface UploadResponse {
 }
 
 export interface ScoreDetail {
-  contentScore: number;      // 内容完整性 (0-25)
-  structureScore: number;    // 结构清晰度 (0-20)
-  skillMatchScore: number;   // 技能匹配度 (0-25)
-  expressionScore: number;   // 表达专业性 (0-15)
-  projectScore: number;      // 项目经验 (0-15)
+  contentScore: number;      // 内容完整性 (0-15)
+  structureScore: number;    // 结构清晰度 (0-15)
+  skillMatchScore: number;   // 技能匹配度 (0-20)
+  expressionScore: number;   // 表达专业性 (0-10)
+  projectScore: number;      // 项目经验 (0-40)
 }
 
 export interface Suggestion {

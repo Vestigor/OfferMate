@@ -10,10 +10,13 @@ public record InterviewSessionDTO(
         int totalQuestions,
         int currentQuestionIndex,
         List<InterviewQuestionDTO> questions,
-        SessionStatus status
+        SessionStatus status,
+        String generateError,
+        Integer followUpCount
 ) {
     public enum SessionStatus {
-        CREATED,      // 会话已创建
+        GENERATING,   // 题目生成中（异步生成）
+        CREATED,      // 会话已创建（题目已就绪）
         IN_PROGRESS,  // 面试进行中
         COMPLETED,    // 面试已完成
         EVALUATED     // 已生成评估报告

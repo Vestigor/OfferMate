@@ -6,7 +6,9 @@ export interface InterviewSession {
   totalQuestions: number;
   currentQuestionIndex: number;
   questions: InterviewQuestion[];
-  status: 'CREATED' | 'IN_PROGRESS' | 'COMPLETED' | 'EVALUATED';
+  status: 'GENERATING' | 'CREATED' | 'IN_PROGRESS' | 'COMPLETED' | 'EVALUATED';
+  generateError?: string;
+  followUpCount?: number;
 }
 
 export interface InterviewQuestion {

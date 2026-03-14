@@ -22,6 +22,7 @@ import {
 interface InterviewHistoryPageProps {
   onBack: () => void;
   onViewInterview: (sessionId: string, resumeId?: number) => void;
+  onContinueInterview?: (resumeId: number) => void;
 }
 
 interface InterviewWithResume extends InterviewItem {
@@ -73,6 +74,11 @@ function StatCard({
   );
 }
 
+// 判断是否为生成中状态
+function isGeneratingStatus(status: string): boolean {
+  return status === 'GENERATING';
+}
+
 // 判断是否为已完成状态（包括 COMPLETED 和 EVALUATED）
 function isCompletedStatus(status: string): boolean {
   return status === 'COMPLETED' || status === 'EVALUATED';
@@ -99,6 +105,10 @@ function isEvaluateFailed(interview: InterviewWithResume): boolean {
 
 // 状态图标
 function StatusIcon({ interview }: { interview: InterviewWithResume }) {
+  // 题目生成中
+  if (isGeneratingStatus(interview.status)) {
+      return <Loader2 className="w-4 h-4 text-blue-500 dark:text-blue-400 animate-spin"/>;
+  }
   // 评估失败
   if (isEvaluateFailed(interview)) {
       return <AlertCircle className="w-4 h-4 text-red-500 dark:text-red-400"/>;
@@ -119,12 +129,16 @@ function StatusIcon({ interview }: { interview: InterviewWithResume }) {
   if (isCompletedStatus(interview.status)) {
       return <Clock className="w-4 h-4 text-yellow-500 dark:text-yellow-400"/>;
   }
-  // 已创建
+  // 已创建（待开始）
     return <Clock className="w-4 h-4 text-yellow-500 dark:text-yellow-400"/>;
 }
 
 // 状态文本
 function getStatusText(interview: InterviewWithResume): string {
+  // 题目生成中
+  if (isGeneratingStatus(interview.status)) {
+    return '生成中';
+  }
   // 评估失败
   if (isEvaluateFailed(interview)) {
     return '评估失败';
@@ -155,7 +169,9 @@ function getScoreColor(score: number): string {
   return 'bg-red-500';
 }
 
-export default function InterviewHistoryPage({ onBack: _onBack, onViewInterview }: InterviewHistoryPageProps) {
+type ModalType = 'generating' | 'ready';
+
+export default function InterviewHistoryPage({ onBack: _onBack, onViewInterview, onContinueInterview }: InterviewHistoryPageProps) {
   const [interviews, setInterviews] = useState<InterviewWithResume[]>([]);
   const [stats, setStats] = useState<InterviewStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -163,6 +179,7 @@ export default function InterviewHistoryPage({ onBack: _onBack, onViewInterview 
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
   const [deleteItem, setDeleteItem] = useState<InterviewWithResume | null>(null);
   const [exporting, setExporting] = useState<string | null>(null);
+  const [statusModal, setStatusModal] = useState<{ type: ModalType; interview: InterviewWithResume } | null>(null);
   const pollingRef = useRef<number | null>(null);
 
   const loadAllInterviews = useCallback(async (isPolling = false) => {
@@ -215,10 +232,10 @@ export default function InterviewHistoryPage({ onBack: _onBack, onViewInterview 
     loadAllInterviews();
   }, [loadAllInterviews]);
 
-  // 轮询检查评估状态
+  // 轮询检查评估状态和题目生成状态
   useEffect(() => {
-    // 检查是否有正在评估的面试
-    const hasEvaluating = interviews.some(i => isEvaluating(i));
+    // 检查是否有正在评估或正在生成题目的面试
+    const hasEvaluating = interviews.some(i => isEvaluating(i) || isGeneratingStatus(i.status));
 
     if (hasEvaluating) {
       // 启动轮询
@@ -400,8 +417,18 @@ export default function InterviewHistoryPage({ onBack: _onBack, onViewInterview 
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    onClick={() => onViewInterview(interview.sessionId, interview.resumeId)}
-                    className="border-b border-slate-50 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors group"
+                    onClick={() => {
+                      if (isGeneratingStatus(interview.status)) {
+                        setStatusModal({ type: 'generating', interview });
+                      } else if (interview.status === 'CREATED') {
+                        setStatusModal({ type: 'ready', interview });
+                      } else if (interview.status === 'IN_PROGRESS' && onContinueInterview) {
+                        onContinueInterview(interview.resumeId);
+                      } else {
+                        onViewInterview(interview.sessionId, interview.resumeId);
+                      }
+                    }}
+                    className="border-b border-slate-50 dark:border-slate-700 transition-colors group hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer"
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -498,6 +525,88 @@ export default function InterviewHistoryPage({ onBack: _onBack, onViewInterview 
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteItem(null)}
       />
+
+      {/* 状态提示弹窗 */}
+      <AnimatePresence>
+        {statusModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/30 dark:bg-black/50 flex items-center justify-center z-50"
+            onClick={() => setStatusModal(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white dark:bg-slate-800 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl"
+              onClick={e => e.stopPropagation()}
+            >
+              {statusModal.type === 'generating' ? (
+                <>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/50 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-slate-800 dark:text-white">题目正在生成中</h3>
+                  </div>
+                  <p className="text-slate-600 dark:text-slate-400 mb-6 text-sm leading-relaxed">
+                    AI 正在为您准备面试题目，生成完成后即可开始面试。请稍候片刻，页面将自动刷新。
+                  </p>
+                  <button
+                    onClick={() => setStatusModal(null)}
+                    className="w-full px-4 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                  >
+                    我知道了
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900/50 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <CheckCircle className="w-5 h-5 text-green-500" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-slate-800 dark:text-white">面试题目已就绪</h3>
+                  </div>
+                  <p className="text-slate-600 dark:text-slate-400 mb-1 text-sm leading-relaxed">
+                    共{' '}
+                    <span className="font-medium text-slate-700 dark:text-slate-300">
+                      {statusModal.interview.totalQuestions} 道
+                    </span>
+                    题目
+                    {statusModal.interview.followUpCount
+                      ? `（含 ${statusModal.interview.followUpCount} 道追问）`
+                      : ''}
+                    ，点击「开始面试」进入模拟面试。
+                  </p>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 mb-6">
+                    面试将从第一题开始，请保持注意力集中。
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setStatusModal(null)}
+                      className="flex-1 px-4 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                    >
+                      稍后再说
+                    </button>
+                    <button
+                      onClick={() => {
+                        setStatusModal(null);
+                        if (onContinueInterview) onContinueInterview(statusModal.interview.resumeId);
+                      }}
+                      className="flex-1 px-4 py-2.5 bg-primary-500 text-white rounded-xl font-medium hover:bg-primary-600 transition-colors"
+                    >
+                      开始面试
+                    </button>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

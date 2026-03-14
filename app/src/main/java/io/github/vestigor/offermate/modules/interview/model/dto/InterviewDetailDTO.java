@@ -13,6 +13,8 @@ public record InterviewDetailDTO(
         String status,
         String evaluateStatus,
         String evaluateError,
+        String generateError,
+        Integer followUpCount,
         Integer overallScore,
         String overallFeedback,
         LocalDateTime createdAt,

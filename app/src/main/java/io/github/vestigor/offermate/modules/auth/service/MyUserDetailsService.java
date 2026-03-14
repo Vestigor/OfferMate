@@ -1,5 +1,6 @@
 package io.github.vestigor.offermate.modules.auth.service;
 
+import io.github.vestigor.offermate.common.exception.BusinessException;
 import io.github.vestigor.offermate.modules.auth.repository.UserRepository;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,6 @@ public class MyUserDetailsService implements UserDetailsService {
     @NonNull
     public UserDetails loadUserByUsername(@NonNull String username) throws UsernameNotFoundException {
         return userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("用户不存在: " + username));
+                .orElseThrow(() -> new UsernameNotFoundException("用户不存在：" + username));
     }
 }

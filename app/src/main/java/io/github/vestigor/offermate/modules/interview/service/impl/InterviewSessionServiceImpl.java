@@ -5,12 +5,12 @@ import io.github.vestigor.offermate.common.exception.ErrorCode;
 import io.github.vestigor.offermate.common.model.AsyncTaskStatus;
 import io.github.vestigor.offermate.infrastructure.redis.InterviewSessionCache;
 import io.github.vestigor.offermate.modules.interview.listener.EvaluateStreamProducer;
+import io.github.vestigor.offermate.modules.interview.listener.GenerateStreamProducer;
 import io.github.vestigor.offermate.modules.interview.model.dto.*;
 import io.github.vestigor.offermate.modules.interview.model.entity.InterviewAnswerEntity;
 import io.github.vestigor.offermate.modules.interview.model.entity.InterviewSessionEntity;
 import io.github.vestigor.offermate.modules.interview.service.AnswerEvaluationService;
 import io.github.vestigor.offermate.modules.interview.service.InterviewPersistenceService;
-import io.github.vestigor.offermate.modules.interview.service.InterviewQuestionService;
 
 import io.github.vestigor.offermate.modules.interview.service.InterviewSessionService;
 import lombok.RequiredArgsConstructor;
@@ -33,75 +33,56 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class InterviewSessionServiceImpl implements InterviewSessionService {
 
-    private final InterviewQuestionService questionService;
     private final AnswerEvaluationService evaluationService;
     private final InterviewPersistenceService persistenceService;
     private final InterviewSessionCache sessionCache;
     private final ObjectMapper objectMapper;
     private final EvaluateStreamProducer evaluateStreamProducer;
+    private final GenerateStreamProducer generateStreamProducer;
 
     /**
-     * 创建新的面试会话
-     * 应该先调用 findUnfinishedSession 检查，或者使用 forceCreate 参数强制创建
-     * 如果已有未完成的会话，不会创建新的，而是返回现有会话
+     * 创建新的面试会话（异步生成题目）
+     * 立即返回 GENERATING 状态的会话，题目生成通过 Redis Stream 异步执行
      */
     @Override
     public InterviewSessionDTO createSession(CreateInterviewRequest request) {
-        // 如果指定了resumeId且未强制创建，检查是否有未完成的会话
+        // 如果指定了resumeId且未强制创建，检查是否有未完成的会话（含GENERATING）
         if (request.resumeId() != null && !Boolean.TRUE.equals(request.forceCreate())) {
             Optional<InterviewSessionDTO> unfinishedOpt = findUnfinishedSession(request.resumeId());
             if (unfinishedOpt.isPresent()) {
-                log.info("检测到未完成的面试会话，返回现有会话: resumeId={}, sessionId={}",
-                        request.resumeId(), unfinishedOpt.get().sessionId());
+                log.info("检测到未完成的面试会话，返回现有会话: resumeId={}, sessionId={}, status={}",
+                        request.resumeId(), unfinishedOpt.get().sessionId(), unfinishedOpt.get().status());
                 return unfinishedOpt.get();
             }
         }
 
         String sessionId = UUID.randomUUID().toString().replace("-", "").substring(0, 16);
 
-        log.info("创建新面试会话: {}, 题目数量: {}, resumeId: {}",
+        log.info("创建新面试会话（异步生成题目）: {}, 题目数量: {}, resumeId: {}",
                 sessionId, request.questionCount(), request.resumeId());
 
-        // 获取历史问题
-        List<String> historicalQuestions = null;
-        if (request.resumeId() != null) {
-            historicalQuestions = persistenceService.getHistoricalQuestionsByResumeId(request.resumeId());
-        }
-
-        // 生成面试问题
-        List<InterviewQuestionDTO> questions = questionService.generateQuestions(
-                request.resumeText(),
-                request.questionCount(),
-                historicalQuestions
-        );
-
-        // 保存到 Redis 缓存
-        sessionCache.saveSession(
-                sessionId,
-                request.resumeText(),
-                request.resumeId(),
-                questions,
-                0,
-                InterviewSessionDTO.SessionStatus.CREATED
-        );
-
-        // 保存到数据库
+        // 保存到数据库（GENERATING 状态，题目为空）
         if (request.resumeId() != null) {
             try {
-                persistenceService.saveSession(sessionId, request.resumeId(),
-                        questions.size(), questions);
+                persistenceService.saveSessionForGenerate(sessionId, request.resumeId(), request.questionCount());
             } catch (Exception e) {
-                log.warn("保存面试会话到数据库失败: {}", e.getMessage());
+                log.error("保存面试会话到数据库失败: {}", e.getMessage(), e);
+                throw new BusinessException(ErrorCode.INTERNAL_ERROR, "创建面试会话失败");
             }
         }
+
+        // 发送题目生成任务到 Redis Stream
+        generateStreamProducer.sendGenerateTask(sessionId, request.resumeId(), request.questionCount());
 
         return new InterviewSessionDTO(
                 sessionId,
                 request.resumeText(),
-                questions.size(),
+                request.questionCount(),
                 0,
-                questions,
-                InterviewSessionDTO.SessionStatus.CREATED
+                List.of(),
+                InterviewSessionDTO.SessionStatus.GENERATING,
+                null,
+                null
         );
     }
 
@@ -117,7 +98,19 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
         }
 
         // 2. 缓存未命中，从数据库恢复
-        InterviewSessionCache.CachedSession restoredSession = restoreSessionFromDatabase(sessionId);
+        Optional<InterviewSessionEntity> entityOpt = persistenceService.findBySessionId(sessionId);
+        if (entityOpt.isEmpty()) {
+            throw new BusinessException(ErrorCode.INTERVIEW_SESSION_NOT_FOUND);
+        }
+
+        InterviewSessionEntity entity = entityOpt.get();
+
+        // GENERATING 状态不放入缓存，直接返回
+        if (entity.getStatus() == InterviewSessionEntity.SessionStatus.GENERATING) {
+            return toGeneratingDTO(entity);
+        }
+
+        InterviewSessionCache.CachedSession restoredSession = restoreSessionFromEntity(entity);
         if (restoredSession == null) {
             throw new BusinessException(ErrorCode.INTERVIEW_SESSION_NOT_FOUND);
         }
@@ -126,12 +119,12 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
     }
 
     /**
-     * 查找并恢复未完成的面试会话
+     * 查找并恢复未完成的面试会话（含GENERATING状态）
      */
     @Override
     public Optional<InterviewSessionDTO> findUnfinishedSession(Long resumeId) {
         try {
-            // 1. 先从 Redis 缓存查找
+            // 1. 先从 Redis 缓存查找（只包含 CREATED/IN_PROGRESS）
             Optional<String> cachedSessionIdOpt = sessionCache.findUnfinishedSessionId(resumeId);
             if (cachedSessionIdOpt.isPresent()) {
                 String sessionId = cachedSessionIdOpt.get();
@@ -142,13 +135,19 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
                 }
             }
 
-            // 2. 缓存未命中，从数据库查找
+            // 2. 缓存未命中，从数据库查找（含GENERATING）
             Optional<InterviewSessionEntity> entityOpt = persistenceService.findUnfinishedSession(resumeId);
             if (entityOpt.isEmpty()) {
                 return Optional.empty();
             }
 
             InterviewSessionEntity entity = entityOpt.get();
+
+            // GENERATING 状态不放入缓存，直接返回
+            if (entity.getStatus() == InterviewSessionEntity.SessionStatus.GENERATING) {
+                return Optional.of(toGeneratingDTO(entity));
+            }
+
             InterviewSessionCache.CachedSession restoredSession = restoreSessionFromEntity(entity);
             if (restoredSession != null) {
                 return Optional.of(toDTO(restoredSession));
@@ -174,7 +173,13 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
     private InterviewSessionCache.CachedSession restoreSessionFromDatabase(String sessionId) {
         try {
             Optional<InterviewSessionEntity> entityOpt = persistenceService.findBySessionId(sessionId);
-            return entityOpt.map(this::restoreSessionFromEntity).orElse(null);
+            if (entityOpt.isEmpty()) return null;
+            InterviewSessionEntity entity = entityOpt.get();
+            if (entity.getStatus() == InterviewSessionEntity.SessionStatus.GENERATING) {
+                // GENERATING 状态不放缓存
+                return null;
+            }
+            return restoreSessionFromEntity(entity);
         } catch (Exception e) {
             log.error("从数据库恢复会话失败: {}", e.getMessage(), e);
             return null;
@@ -186,9 +191,15 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
      */
     private InterviewSessionCache.CachedSession restoreSessionFromEntity(InterviewSessionEntity entity) {
         try {
+            String questionsJson = entity.getQuestionsJson();
+            if (questionsJson == null || questionsJson.isBlank() || "[]".equals(questionsJson)) {
+                log.warn("会话题目为空，无法恢复: sessionId={}", entity.getSessionId());
+                return null;
+            }
+
             // 解析问题列表
             List<InterviewQuestionDTO> questions = objectMapper.readValue(
-                    entity.getQuestionsJson(),
+                    questionsJson,
                     new TypeReference<>() {}
             );
 
@@ -217,7 +228,6 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
             log.info("从数据库恢复会话到 Redis: sessionId={}, currentIndex={}, status={}",
                     entity.getSessionId(), entity.getCurrentQuestionIndex(), entity.getStatus());
 
-            // 返回缓存的会话
             return sessionCache.getSession(entity.getSessionId()).orElse(null);
         } catch (Exception e) {
             log.error("恢复会话失败: {}", e.getMessage(), e);
@@ -227,6 +237,7 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
 
     private InterviewSessionDTO.SessionStatus convertStatus(InterviewSessionEntity.SessionStatus status) {
         return switch (status) {
+            case GENERATING -> InterviewSessionDTO.SessionStatus.GENERATING;
             case CREATED -> InterviewSessionDTO.SessionStatus.CREATED;
             case IN_PROGRESS -> InterviewSessionDTO.SessionStatus.IN_PROGRESS;
             case COMPLETED -> InterviewSessionDTO.SessionStatus.COMPLETED;
@@ -496,7 +507,25 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
                 questions.size(),
                 session.getCurrentIndex(),
                 questions,
-                session.getStatus()
+                session.getStatus(),
+                null,
+                null
+        );
+    }
+
+    /**
+     * 将 GENERATING 状态的实体转换为 DTO
+     */
+    private InterviewSessionDTO toGeneratingDTO(InterviewSessionEntity entity) {
+        return new InterviewSessionDTO(
+                entity.getSessionId(),
+                entity.getResume() != null ? entity.getResume().getResumeText() : "",
+                entity.getTotalQuestions() != null ? entity.getTotalQuestions() : 0,
+                0,
+                List.of(),
+                InterviewSessionDTO.SessionStatus.GENERATING,
+                entity.getGenerateError(),
+                entity.getFollowUpCount()
         );
     }
 }

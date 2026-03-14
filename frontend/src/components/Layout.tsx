@@ -110,8 +110,8 @@ export default function Layout() {
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <span className="text-lg font-bold text-slate-800 dark:text-white tracking-tight block">AI Interview</span>
-              <span className="text-xs text-slate-400 dark:text-slate-500">智能面试助手</span>
+              <span className="text-lg font-bold text-slate-800 dark:text-white tracking-tight block">Offer Mate</span>
+              <span className="text-xs text-slate-400 dark:text-slate-500">AI 求职助手</span>
             </div>
           </Link>
         </div>

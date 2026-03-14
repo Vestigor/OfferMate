@@ -87,8 +87,16 @@ public class InterviewSessionEntity {
     @Column(length = 500)
     private String evaluateError;
 
+    // 题目生成错误信息
+    @Column(length = 500)
+    private String generateError;
+
+    // 追问数量（生成完成后记录）
+    private Integer followUpCount;
+
     public enum SessionStatus {
-        CREATED,      // 会话已创建
+        GENERATING,   // 题目生成中（异步生成）
+        CREATED,      // 会话已创建（题目已就绪）
         IN_PROGRESS,  // 面试进行中
         COMPLETED,    // 面试已完成
         EVALUATED     // 已生成评估报告
