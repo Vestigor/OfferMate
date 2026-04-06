@@ -31,7 +31,6 @@ import java.util.UUID;
 @Aspect
 @Component
 @RequiredArgsConstructor
-
 public class RateLimitAspect {
 
     private final RedissonClient redissonClient;

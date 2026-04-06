@@ -111,7 +111,7 @@ export default function Layout() {
             </div>
             <div>
               <span className="text-lg font-bold text-slate-800 dark:text-white tracking-tight block">Offer Mate</span>
-              <span className="text-xs text-slate-400 dark:text-slate-500">AI 求职助手</span>
+              <span className="text-xs text-slate-400 dark:text-slate-500">你的 AI 求职助手</span>
             </div>
           </Link>
         </div>

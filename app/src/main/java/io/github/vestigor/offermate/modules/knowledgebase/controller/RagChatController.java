@@ -1,6 +1,7 @@
 package io.github.vestigor.offermate.modules.knowledgebase.controller;
 
 import io.github.vestigor.offermate.common.result.Result;
+import io.github.vestigor.offermate.common.security.SecurityUtils;
 import io.github.vestigor.offermate.modules.knowledgebase.model.dto.RagChatDTO;
 import io.github.vestigor.offermate.modules.knowledgebase.service.RagChatSessionService;
 
@@ -101,6 +102,7 @@ public class RagChatController {
     public Flux<ServerSentEvent<String>> sendMessageStream(
             @PathVariable Long sessionId,
             @Valid @RequestBody RagChatDTO.SendMessageRequest request) {
+        Long userId = SecurityUtils.getUserId();
 
         log.info("收到 RAG 聊天流式请求: sessionId={}, question={}, 线程: {} (虚拟线程: {})",
                 sessionId, request.question(), Thread.currentThread(), Thread.currentThread().isVirtual());
@@ -109,7 +111,7 @@ public class RagChatController {
 
         StringBuilder fullContent = new StringBuilder();
 
-        return sessionService.getStreamAnswer(sessionId, request.question())
+        return sessionService.getStreamAnswer(sessionId, userId, request.question())
                 .doOnNext(fullContent::append)
                 .map(chunk -> ServerSentEvent.<String>builder()
                         .data(chunk.replace("\n", "\\n").replace("\r", "\\r"))

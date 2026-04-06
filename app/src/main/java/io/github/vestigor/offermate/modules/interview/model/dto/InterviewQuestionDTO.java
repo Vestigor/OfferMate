@@ -26,14 +26,14 @@ public record InterviewQuestionDTO(
     }
 
     /**
-     * 创建新问题（未回答状态）
+     * 创建新问题
      */
     public static InterviewQuestionDTO create(int index, String question, QuestionType type, String category) {
         return new InterviewQuestionDTO(index, question, type, category, null, null, null, false, null);
     }
 
     /**
-     * 创建新问题（支持追问标记）
+     * 创建新问题
      */
     public static InterviewQuestionDTO create(
             int index,

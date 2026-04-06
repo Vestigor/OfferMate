@@ -41,7 +41,7 @@ public class KnowledgeBaseController {
     /**
      * 获取所有知识库列表
      */
-    @GetMapping("list")
+    @GetMapping("/list")
     public Result<List<KnowledgeBaseListItemDTO>> getAllKnowledgeBases(
             @RequestParam(value = "sortBy", required = false) String sortBy,
             @RequestParam(value = "vectorStatus", required = false) String vectorStatus) {
@@ -130,7 +130,6 @@ public class KnowledgeBaseController {
         listService.updateCategory(id, body.get("category"));
         return Result.success(null);
     }
-
 
     /**
      * 上传知识库文件

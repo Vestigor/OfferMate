@@ -92,7 +92,7 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         Long userId = Long.parseLong(parts[0]);
         String username = parts[1];
 
-        // 删除旧的 refresh token（旋转策略：用过即废）
+        // 删除旧的 refresh token
         redisService.delete(tokenKey);
 
         // 签发新的 access token + refresh token

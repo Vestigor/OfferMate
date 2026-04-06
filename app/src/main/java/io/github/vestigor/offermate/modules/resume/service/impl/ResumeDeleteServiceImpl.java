@@ -11,6 +11,7 @@ import io.github.vestigor.offermate.modules.resume.service.ResumePersistenceServ
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 简历删除服务
@@ -31,6 +32,7 @@ public class ResumeDeleteServiceImpl implements ResumeDeleteService {
      * @param id 简历ID
      * @throws BusinessException 如果简历不存在
      */
+    @Transactional
     public void deleteResume(Long id) {
         log.info("收到删除简历请求: id={}", id);
 

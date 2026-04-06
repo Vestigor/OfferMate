@@ -131,9 +131,9 @@ public class RagChatSessionServiceImpl implements RagChatSessionService {
     }
 
     @Override
-    public Flux<String> getStreamAnswer(Long sessionId, String question) {
+    public Flux<String> getStreamAnswer(Long sessionId, Long userId, String question) {
         RagChatSessionEntity session = sessionRepository
-                .findByIdAndUserIdWithKnowledgeBases(sessionId, SecurityUtils.getUserId())
+                .findByIdAndUserIdWithKnowledgeBases(sessionId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RAG_CHAT_SESSION_NOT_FOUND, "会话不存在"));
 
         return queryService.answerQuestionStream(session.getKnowledgeBaseIds(), question);

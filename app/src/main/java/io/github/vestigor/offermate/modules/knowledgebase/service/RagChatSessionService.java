@@ -35,7 +35,7 @@ public interface RagChatSessionService {
     /**
      * 获取流式回答
      */
-    Flux<String> getStreamAnswer(Long sessionId, String question);
+    Flux<String> getStreamAnswer(Long sessionId, Long userId, String question);
 
     /**
      * 更新会话标题

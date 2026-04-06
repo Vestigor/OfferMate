@@ -32,7 +32,6 @@ for i, key in ipairs(KEYS) do
     if #expired_values > 0 then
         local expired_count = 0
         for _, v in ipairs(expired_values) do
-            -- 优化解析逻辑：使用更高效的模式匹配
             local p = tonumber(string.match(v, ":(%d+)$"))
             if p then
                 expired_count = expired_count + p
@@ -50,7 +49,7 @@ for i, key in ipairs(KEYS) do
         end
     end
 
-    -- 核心检查：当前可用令牌是否足够
+    -- 当前可用令牌是否足够
     local current_val = tonumber(redis.call("get", value_key) or max_tokens)
     if current_val < permits then
         -- 任何一个维度配额不足，直接返回失败

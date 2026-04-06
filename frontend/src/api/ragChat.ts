@@ -1,4 +1,5 @@
 import { request, getErrorMessage } from './request';
+import { TOKEN_KEY } from '../context/AuthContext';
 
 const API_BASE_URL = import.meta.env.PROD ? '' : 'http://localhost:8080';
 
@@ -116,11 +117,14 @@ export const ragChatApi = {
     onError: (error: Error) => void
   ): Promise<void> {
     try {
+      const token = localStorage.getItem(TOKEN_KEY);
+
       const response = await fetch(
         `${API_BASE_URL}/api/rag-chat/sessions/${sessionId}/messages/stream`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json',
+                     'Authorization': `Bearer ${token}`, },
           body: JSON.stringify({ question }),
         }
       );

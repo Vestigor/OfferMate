@@ -54,7 +54,7 @@ export default function LoginPage() {
           </div>
           <div>
             <span className="text-2xl font-bold text-slate-800 dark:text-white tracking-tight block">Offer Mate</span>
-            <span className="text-sm text-slate-400 dark:text-slate-500">AI 求职助手</span>
+            <span className="text-sm text-slate-400 dark:text-slate-500">你的 AI 求职助手</span>
           </div>
         </div>
 

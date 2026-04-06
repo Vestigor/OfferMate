@@ -361,7 +361,7 @@ public class RedisService {
     // ==================== 工具方法 ====================
 
     /**
-     * 获取 RedissonClient（用于高级操作）
+     * 获取 RedissonClient
      */
     public RedissonClient getClient() {
         return redissonClient;

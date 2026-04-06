@@ -286,6 +286,7 @@ public class KnowledgeBaseQueryServiceImpl implements KnowledgeBaseQueryService 
             Map<String, Object> variables = new HashMap<>();
             variables.put("question", question);
             String rewritePrompt = rewritePromptTemplate.render(variables);
+            // AI 改写问题
             String rewritten = chatClient.prompt()
                     .user(rewritePrompt)
                     .call()
